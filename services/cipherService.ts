@@ -130,30 +130,40 @@ export const decodeMessage = (cipher: string, bookText: string, mode: CipherMode
 
     const parts = token.split(':').map(n => parseInt(n, 10));
     
-    let lineNum, wordNum, charNum;
+    // Explicitly initialize variables to avoid TS strict null check errors
+    let lineNum: number = 0;
+    let wordNum: number = 0;
+    let charNum: number = 0;
 
     if (mode === CipherMode.WORD) {
       // Expecting Line:Word
-      [lineNum, wordNum] = parts;
+      if (parts.length >= 2) {
+        lineNum = parts[0];
+        wordNum = parts[1];
+      }
     } else {
       // Expecting Page:Line:Word:Letter (4 parts) OR Line:Word:Letter (3 parts - legacy)
       if (parts.length === 4) {
          // We ignore the Page Number (parts[0]) for the actual decoding logic
          // assuming the user has loaded the correct text into the "Dados Coletados" area.
-         [, lineNum, wordNum, charNum] = parts;
-      } else {
-         [lineNum, wordNum, charNum] = parts;
+         lineNum = parts[1];
+         wordNum = parts[2];
+         charNum = parts[3];
+      } else if (parts.length === 3) {
+         lineNum = parts[0];
+         wordNum = parts[1];
+         charNum = parts[2];
       }
     }
 
     // Validate Line
-    if (isNaN(lineNum) || lineNum < 1 || lineNum > lines.length) return '?';
+    if (lineNum < 1 || lineNum > lines.length) return '?';
     
     const lineContent = lines[lineNum - 1];
     const words = lineContent.trim().split(/\s+/);
 
     // Validate Word
-    if (isNaN(wordNum) || wordNum < 1 || wordNum > words.length) return '?';
+    if (wordNum < 1 || wordNum > words.length) return '?';
     
     const rawWord = words[wordNum - 1];
     const cleanWord = rawWord.replace(/[^\wÀ-ÿ]/g, '');
@@ -162,7 +172,7 @@ export const decodeMessage = (cipher: string, bookText: string, mode: CipherMode
       return cleanWord.toUpperCase();
     } else {
       // Validate Char
-      if (isNaN(charNum) || charNum < 1 || charNum > cleanWord.length) return '?';
+      if (charNum < 1 || charNum > cleanWord.length) return '?';
       return cleanWord[charNum - 1].toUpperCase();
     }
   });
