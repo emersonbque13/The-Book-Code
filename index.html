@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Book Code</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --neon-cyan: #22d3ee;
+        --neon-emerald: #34d399;
+        --dark-bg: #020617;
+      }
+      
+      body {
+        font-family: 'Rajdhani', sans-serif;
+        background-color: var(--dark-bg);
+        color: #e2e8f0;
+        overflow-x: hidden;
+      }
+
+      .font-orbitron {
+        font-family: 'Orbitron', sans-serif;
+      }
+      
+      .font-rajdhani {
+        font-family: 'Rajdhani', sans-serif;
+      }
+
+      .font-mono {
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* Tech Grid Background */
+      .tech-grid {
+        background-color: #020617;
+        background-image: 
+          linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+        background-position: center top;
+      }
+      
+      .tech-grid::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: radial-gradient(circle at center, transparent 0%, #020617 90%);
+        pointer-events: none;
+      }
+
+      /* Custom scrollbar */
+      textarea::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      textarea::-webkit-scrollbar-track {
+        background: #0f172a; 
+      }
+      textarea::-webkit-scrollbar-thumb {
+        background: #1e293b; 
+        border-radius: 0px;
+        border: 1px solid #334155;
+      }
+      textarea::-webkit-scrollbar-thumb:hover {
+        background: #0ea5e9; 
+      }
+
+      /* Neon Pulse Animation for Inputs */
+      @keyframes neon-pulse {
+        0% {
+          border-color: rgba(34, 211, 238, 0.4);
+          box-shadow: 0 0 5px rgba(34, 211, 238, 0.1), inset 0 0 2px rgba(34, 211, 238, 0.05);
+        }
+        50% {
+          border-color: rgba(52, 211, 153, 0.8);
+          box-shadow: 0 0 15px rgba(52, 211, 153, 0.3), inset 0 0 10px rgba(52, 211, 153, 0.1);
+        }
+        100% {
+          border-color: rgba(34, 211, 238, 0.4);
+          box-shadow: 0 0 5px rgba(34, 211, 238, 0.1), inset 0 0 2px rgba(34, 211, 238, 0.05);
+        }
+      }
+
+      .cyber-input {
+        background-color: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      .cyber-input:focus, .cyber-input-active {
+        animation: neon-pulse 3s infinite ease-in-out;
+        outline: none;
+      }
+
+      /* Clip Path for "Cut" corners */
+      .clip-corner {
+        clip-path: polygon(
+          15px 0, 100% 0, 
+          100% calc(100% - 15px), calc(100% - 15px) 100%, 
+          0 100%, 0 15px
+        );
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+</head>
+  <body class="tech-grid min-h-screen">
+    <div id="root"></div>
+  </body>
+</html>

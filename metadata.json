@@ -1,0 +1,7 @@
+{
+  "name": "The Book Code",
+  "description": "Uma ferramenta criptográfica que usa cifras de livro (incluindo Ottendorf e métodos baseados em palavras) para codificar e decodificar mensagens secretas usando qualquer texto como chave.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
