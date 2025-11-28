@@ -65,24 +65,8 @@ const App: React.FC = () => {
     processText();
   }, [processText]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      setBookText(text);
-    } catch (err) {
-      alert("Erro ao ler o arquivo de texto.");
-    } finally {
-      if (txtInputRef.current) txtInputRef.current.value = '';
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Função auxiliar para processar imagens (OCR)
+  const processImageFile = async (file: File) => {
     setIsAnalyzingImage(true);
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -97,17 +81,61 @@ const App: React.FC = () => {
       });
 
       const text = await extractTextFromImage(base64Data, file.type);
+      
       setBookText(prev => {
-        const separator = prev ? "\n\n--- DADOS EXTRAÍDOS ---\n\n" : "";
+        // Se o texto atual for o padrão ou estiver vazio, substitui.
+        // Caso contrário, anexa (útil para adicionar múltiplas páginas).
+        if (prev === INITIAL_BOOK || prev.trim() === "") {
+          return text;
+        }
+        const separator = "\n\n--- NOVA PÁGINA IDENTIFICADA ---\n\n";
         return prev + separator + text;
       });
 
     } catch (err) {
-      alert("Erro no protocolo de reconhecimento ótico.");
+      console.error(err);
+      alert("Erro no protocolo de reconhecimento ótico. Verifique sua chave de API ou a imagem.");
     } finally {
       setIsAnalyzingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  // Handler unificado para o botão "Upload Arquivo" (Texto ou Imagem)
+  const handleUniversalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Se for arquivo de texto
+    if (file.type === 'text/plain') {
+      try {
+        const text = await file.text();
+        setBookText(text);
+      } catch (err) {
+        alert("Erro ao ler o arquivo de texto.");
+      }
+    } 
+    // Se for imagem (png, jpeg, webp, etc)
+    else if (file.type.startsWith('image/')) {
+      await processImageFile(file);
+    }
+    else {
+      alert("Formato de arquivo não suportado. Use .txt ou Imagens.");
+    }
+
+    // Limpar input para permitir selecionar o mesmo arquivo novamente se necessário
+    if (txtInputRef.current) txtInputRef.current.value = '';
+  };
+
+  // Handler exclusivo para o botão "Câmera" (Imagens apenas)
+  const handleCameraUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type.startsWith('image/')) {
+      await processImageFile(file);
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Limpa o texto padrão quando o usuário clica na caixa de texto
@@ -169,27 +197,31 @@ const App: React.FC = () => {
               Dados Coletados
             </h2>
             <div className="flex flex-wrap gap-2 justify-end">
+              {/* Input universal: Aceita TXT e Imagens */}
               <input 
                 type="file" 
                 ref={txtInputRef} 
-                accept=".txt" 
-                onChange={handleFileUpload} 
+                accept=".txt,image/*" 
+                onChange={handleUniversalUpload} 
                 className="hidden" 
               />
               <Button 
                 variant="secondary" 
                 size="sm" 
                 onClick={() => txtInputRef.current?.click()} 
+                isLoading={isAnalyzingImage}
               >
                 <Upload className="w-3.5 h-3.5" />
                 Upload Arquivo
               </Button>
 
+              {/* Input Câmera: Focado em captura de imagem */}
               <input 
                 type="file" 
                 ref={fileInputRef} 
                 accept="image/*" 
-                onChange={handleImageUpload} 
+                capture="environment"
+                onChange={handleCameraUpload} 
                 className="hidden" 
               />
               <Button 
