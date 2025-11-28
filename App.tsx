@@ -110,6 +110,13 @@ const App: React.FC = () => {
     }
   };
 
+  // Limpa o texto padrão quando o usuário clica na caixa de texto
+  const handleBookTextFocus = () => {
+    if (bookText === INITIAL_BOOK) {
+      setBookText("");
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col items-center relative">
       
@@ -204,6 +211,7 @@ const App: React.FC = () => {
             <textarea
               value={bookText}
               onChange={(e) => setBookText(e.target.value)}
+              onFocus={handleBookTextFocus}
               className="cyber-input w-full h-[650px] rounded-sm p-6 font-mono text-xs md:text-sm leading-relaxed text-cyan-100/80 resize-none pb-12"
               placeholder="INICIALIZAR SISTEMA COM TEXTO CHAVE..."
               spellCheck={false}
