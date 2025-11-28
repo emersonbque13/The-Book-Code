@@ -106,7 +106,7 @@ const App: React.FC = () => {
         handleLinkApiKey();
         return;
       } else {
-        alert("Erro: API Key não configurada. Verifique as variáveis de ambiente.");
+        alert("Erro: API Key não detectada.\n\nSe você está no Vercel:\n1. Vá em Settings > Environment Variables\n2. Adicione KEY: API_KEY e VALUE: sua_chave\n3. Faça o Redeploy.");
         return;
       }
     }
@@ -224,7 +224,10 @@ const App: React.FC = () => {
             )}
             
             {!apiKeyReady && !canUseAIStudio && (
-               <div className="text-red-500 text-xs font-orbitron border border-red-900/50 bg-red-950/30 px-3 py-1 rounded flex items-center gap-2">
+               <div 
+                className="text-red-500 text-xs font-orbitron border border-red-900/50 bg-red-950/30 px-3 py-1 rounded flex items-center gap-2 cursor-help"
+                title="Configure a variável de ambiente API_KEY no Vercel (Settings -> Env Variables) ou crie um arquivo .env localmente."
+               >
                  <Shield className="w-3 h-3" />
                  API KEY MISSING (.ENV)
                </div>
