@@ -23,9 +23,43 @@ const App: React.FC = () => {
   const [isEncoding, setIsEncoding] = useState<boolean>(true);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState<boolean>(false);
   const [result, setResult] = useState<ProcessingResult | null>(null);
+  
+  // API Key State
+  const [apiKeyReady, setApiKeyReady] = useState<boolean>(false);
+  const [canUseAIStudio, setCanUseAIStudio] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const txtInputRef = useRef<HTMLInputElement>(null);
+
+  // Verificar disponibilidade da API Key na inicialização
+  useEffect(() => {
+    const checkApiKey = async () => {
+      // Verifica se está rodando no ambiente AI Studio
+      if (window.aistudio) {
+        setCanUseAIStudio(true);
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setApiKeyReady(hasKey);
+      } else {
+        // Ambiente padrão (Vercel/Local) - verifica variavel de ambiente
+        // Nota: process.env.API_KEY é injetado pelo Vite como string
+        setApiKeyReady(!!process.env.API_KEY);
+      }
+    };
+    checkApiKey();
+  }, []);
+
+  const handleLinkApiKey = async () => {
+    if (window.aistudio) {
+      try {
+        await window.aistudio.openSelectKey();
+        // Assume sucesso para mitigar condição de corrida, conforme instrução
+        setApiKeyReady(true);
+      } catch (e) {
+        console.error("Erro ao selecionar chave", e);
+        setApiKeyReady(false);
+      }
+    }
+  };
 
   // Índice do Livro Memoizado
   const bookIndex = useMemo(() => {
@@ -67,6 +101,16 @@ const App: React.FC = () => {
 
   // Função auxiliar para processar imagens (OCR)
   const processImageFile = async (file: File) => {
+    if (!apiKeyReady) {
+      if (canUseAIStudio) {
+        handleLinkApiKey();
+        return;
+      } else {
+        alert("Erro: API Key não configurada. Verifique as variáveis de ambiente.");
+        return;
+      }
+    }
+
     setIsAnalyzingImage(true);
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -164,25 +208,42 @@ const App: React.FC = () => {
                 The Book Code
               </h1>
               <p className="text-slate-400 font-rajdhani text-lg mt-1 tracking-wider uppercase flex items-center gap-2">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                <span className={`w-2 h-2 rounded-full animate-ping ${apiKeyReady ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                 Protocolo de Mensagens Seguras V.1
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-950/50 p-1 border border-slate-800 backdrop-blur-sm" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}>
-             <button
-               onClick={() => setMode(CipherMode.PLP)}
-               className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.PLP ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
-             >
-               Modo P.L.P
-             </button>
-             <button
-               onClick={() => setMode(CipherMode.DPLP)}
-               className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.DPLP ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
-             >
-               Modo D.P.L.P
-             </button>
+          <div className="flex flex-col items-end gap-3">
+            {/* API Key Status Indicator / Action */}
+            {!apiKeyReady && canUseAIStudio && (
+              <Button variant="danger" size="sm" onClick={handleLinkApiKey} className="animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+                 <Key className="w-4 h-4 mr-2" />
+                 VINCULAR CHAVE API
+              </Button>
+            )}
+            
+            {!apiKeyReady && !canUseAIStudio && (
+               <div className="text-red-500 text-xs font-orbitron border border-red-900/50 bg-red-950/30 px-3 py-1 rounded flex items-center gap-2">
+                 <Shield className="w-3 h-3" />
+                 API KEY MISSING (.ENV)
+               </div>
+            )}
+
+            <div className="flex items-center gap-1 bg-slate-950/50 p-1 border border-slate-800 backdrop-blur-sm" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}>
+              <button
+                onClick={() => setMode(CipherMode.PLP)}
+                className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.PLP ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                Modo P.L.P
+              </button>
+              <button
+                onClick={() => setMode(CipherMode.DPLP)}
+                className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.DPLP ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                Modo D.P.L.P
+              </button>
+            </div>
           </div>
         </div>
       </header>

@@ -28,3 +28,15 @@ export interface CipherState {
   mode: CipherMode;
   isEncoding: boolean; // true = Encode, false = Decode
 }
+
+// Google AI Studio Global Interface
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}
