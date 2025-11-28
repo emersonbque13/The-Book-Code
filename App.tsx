@@ -1,19 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { BookOpen, Key, Lock, Unlock, RefreshCw, FileText, ArrowRight, Camera, Cpu, Terminal, Shield, Hash, Upload } from 'lucide-react';
+import { BookOpen, Key, Lock, Unlock, RefreshCw, FileText, ArrowRight, Camera, Cpu, Terminal, Shield, Hash, Upload, Calendar } from 'lucide-react';
 import { CipherMode, ProcessingResult } from './types';
 import { indexBook, encodeMessage, decodeMessage } from './services/cipherService';
 import { extractTextFromImage } from './services/geminiService';
 import { Button } from './components/Button';
 
-// Texto inicial em Português (Verso do Anel)
-const INITIAL_BOOK = `Três Anéis para os Reis Elfos sob o céu,
-Sete para os Senhores Anões em seus salões de pedra,
-Nove para os Homens Mortais condenados à morte,
-Um para o Senhor do Escuro em seu trono escuro,
-Na Terra de Mordor onde as Sombras se estendem,
-Um anel para governar a todos, um anel para encontrá-los,
-Um anel para trazê-los a todos e na escuridão aprisioná-los
-Na Terra de Mordor onde as Sombras se estendem.`;
+// Texto inicial padrão
+const INITIAL_BOOK = `Escreva aqui seu texto...`;
 
 const CornerMarker = ({ className }: { className?: string }) => (
   <svg className={`absolute w-8 h-8 text-cyan-500/50 pointer-events-none ${className}`} viewBox="0 0 40 40" fill="none">
@@ -25,8 +18,8 @@ const App: React.FC = () => {
   // Estado
   const [bookText, setBookText] = useState<string>(INITIAL_BOOK);
   const [inputText, setInputText] = useState<string>("");
-  const [mode, setMode] = useState<CipherMode>(CipherMode.WORD);
-  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [mode, setMode] = useState<CipherMode>(CipherMode.PLP);
+  const [dateString, setDateString] = useState<string>("");
   const [isEncoding, setIsEncoding] = useState<boolean>(true);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState<boolean>(false);
   const [result, setResult] = useState<ProcessingResult | null>(null);
@@ -60,13 +53,13 @@ const App: React.FC = () => {
     }
 
     if (isEncoding) {
-      const res = encodeMessage(inputText, bookIndex, mode, pageNumber);
+      const res = encodeMessage(inputText, bookIndex, mode, dateString);
       setResult(res);
     } else {
       const res = decodeMessage(inputText, bookText, mode);
       setResult(res);
     }
-  }, [inputText, bookIndex, mode, isEncoding, pageNumber, bookText]);
+  }, [inputText, bookIndex, mode, isEncoding, dateString, bookText]);
 
   useEffect(() => {
     processText();
@@ -143,16 +136,16 @@ const App: React.FC = () => {
 
           <div className="flex items-center gap-1 bg-slate-950/50 p-1 border border-slate-800 backdrop-blur-sm" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}>
              <button
-               onClick={() => setMode(CipherMode.WORD)}
-               className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.WORD ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
+               onClick={() => setMode(CipherMode.PLP)}
+               className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.PLP ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
              >
-               Modo L.L
+               Modo P.L.P
              </button>
              <button
-               onClick={() => setMode(CipherMode.OTTENDORF)}
-               className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.OTTENDORF ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
+               onClick={() => setMode(CipherMode.DPLP)}
+               className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.DPLP ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
              >
-               Modo P.L.L
+               Modo D.P.L.P
              </button>
           </div>
         </div>
@@ -262,17 +255,17 @@ const App: React.FC = () => {
                   Decriptar
                 </Button>
 
-                {/* Page Input for P.L.L Mode */}
-                {mode === CipherMode.OTTENDORF && isEncoding && (
+                {/* Date Input for D.P.L.P Mode */}
+                {mode === CipherMode.DPLP && isEncoding && (
                   <div className="flex items-center gap-2 ml-2 pl-4 border-l border-slate-700">
-                     <Hash className="w-4 h-4 text-cyan-500" />
+                     <Calendar className="w-4 h-4 text-cyan-500" />
                      <input 
-                      type="number"
-                      min="1"
-                      value={pageNumber}
-                      onChange={(e) => setPageNumber(parseInt(e.target.value) || 1)}
-                      className="w-16 bg-slate-900 border border-slate-700 text-cyan-400 px-2 py-1 font-orbitron text-sm focus:border-cyan-500 outline-none"
-                      title="Número da Página"
+                      type="text"
+                      value={dateString}
+                      onChange={(e) => setDateString(e.target.value)}
+                      placeholder="DD/MM/AAAA"
+                      className="w-28 bg-slate-900 border border-slate-700 text-cyan-400 px-2 py-1 font-orbitron text-sm focus:border-cyan-500 outline-none"
+                      title="Inserir Data"
                      />
                   </div>
                 )}
@@ -297,7 +290,7 @@ const App: React.FC = () => {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 className="cyber-input w-full h-32 rounded-none border-l-2 border-r-2 border-t-0 border-b-0 p-4 font-mono text-base bg-slate-900/60 text-slate-200 focus:border-cyan-500"
-                placeholder={isEncoding ? "Inserir mensagem confidencial..." : "Inserir coordenadas (ex: 1:5  2:3)..."}
+                placeholder={isEncoding ? "Inserir mensagem confidencial..." : "Inserir coordenadas..."}
                 style={{ borderImage: "linear-gradient(to bottom, rgba(34,211,238,0.5), transparent) 1 100%" }}
               />
               <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-500/50"></div>
@@ -342,8 +335,6 @@ const App: React.FC = () => {
               ) : (
                 <>
                   <div className="relative z-10">{result.text}</div>
-                  
-                  {/* Digital Noise Effect overlay (optional css class could be added) */}
                   
                   {result.missingTokens && result.missingTokens.length > 0 && (
                      <div className="mt-8 pt-4 border-t border-dashed border-slate-800 text-xs text-slate-500">

@@ -1,16 +1,16 @@
 export enum CipherMode {
-  WORD = 'WORD',         // Encodes whole words (Format: Line:Word)
-  OTTENDORF = 'OTTENDORF' // Encodes characters (Format: Line:Word:Letter)
+  PLP = 'PLP',   // Format: Paragraph:Line:Word
+  DPLP = 'DPLP'  // Format: Date:Paragraph:Line:Word
 }
 
 export interface BookLocation {
+  paragraph: number;
   line: number;
   word: number;
-  char?: number;
-  content: string; // The actual word or char found
+  content: string; // The actual word found
 }
 
-// Maps a normalized word or character to an array of possible locations in the book
+// Maps a normalized word to an array of possible locations in the book
 export interface BookIndex {
   [key: string]: BookLocation[];
 }

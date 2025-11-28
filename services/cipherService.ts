@@ -2,45 +2,48 @@ import { BookIndex, BookLocation, CipherMode, ProcessingResult } from '../types'
 
 /**
  * Parses the "Book" text into a structured index for fast lookups.
- * We index by lines and words.
+ * Indexes by Paragraph -> Line -> Word.
  */
 export const indexBook = (text: string, mode: CipherMode): BookIndex => {
   const index: BookIndex = {};
-  const lines = text.split(/\r?\n/);
+  
+  // Split by double newlines to identify paragraphs
+  // Using regex to catch multiple newlines or newlines with whitespace
+  const paragraphs = text.split(/\n\s*\n/);
 
-  lines.forEach((lineContent, lineIdx) => {
-    // 1-based indexing for user friendliness
-    const lineNum = lineIdx + 1; 
+  paragraphs.forEach((paraContent, paraIdx) => {
+    if (!paraContent.trim()) return;
     
-    // Split by spaces to get words, keeping punctuation attached to words implies
-    // strict matching, but usually book ciphers strip punctuation. 
-    // We will clean words for indexing.
-    const words = lineContent.trim().split(/\s+/);
+    const paragraphNum = paraIdx + 1;
+    
+    // Split paragraph into lines
+    const lines = paraContent.split(/\r?\n/);
 
-    words.forEach((rawWord, wordIdx) => {
-      if (!rawWord) return;
+    lines.forEach((lineContent, lineIdx) => {
+      const lineNum = lineIdx + 1; 
       
-      const wordNum = wordIdx + 1;
-      // Clean the word for the key (remove punctuation, lowercase)
-      const cleanWord = rawWord.replace(/[^\wÀ-ÿ]/g, '').toLowerCase();
-      
-      if (mode === CipherMode.WORD) {
+      // Split by spaces to get words
+      const words = lineContent.trim().split(/\s+/);
+
+      words.forEach((rawWord, wordIdx) => {
+        if (!rawWord) return;
+        
+        const wordNum = wordIdx + 1;
+        // Clean the word for the key (remove punctuation, lowercase)
+        const cleanWord = rawWord.replace(/[^\wÀ-ÿ]/g, '').toLowerCase();
+        
         if (!cleanWord) return;
+        
         if (!index[cleanWord]) index[cleanWord] = [];
-        index[cleanWord].push({ line: lineNum, word: wordNum, content: cleanWord });
-      } 
-      else if (mode === CipherMode.OTTENDORF) {
-        // Index every character in the raw word (or clean word)
-        // Ottendorf usually counts letters within the word.
-        // We will use the Clean Word for letter counting to avoid confusion with punctuation.
-        const chars = cleanWord.split('');
-        chars.forEach((char, charIdx) => {
-          const charNum = charIdx + 1;
-          const key = char.toLowerCase();
-          if (!index[key]) index[key] = [];
-          index[key].push({ line: lineNum, word: wordNum, char: charNum, content: char });
+        
+        // Store location: Paragraph, Line (relative to paragraph), Word
+        index[cleanWord].push({ 
+          paragraph: paragraphNum,
+          line: lineNum, 
+          word: wordNum, 
+          content: cleanWord 
         });
-      }
+      });
     });
   });
 
@@ -49,73 +52,59 @@ export const indexBook = (text: string, mode: CipherMode): BookIndex => {
 
 /**
  * Encodes a message using the provided book index.
- * Uses Homophonic Substitution (randomly selects one valid location for each token).
- * Adds Page Number to the code structure if provided (mainly for Ottendorf).
+ * Uses Homophonic Substitution (randomly selects one valid location for each word).
+ * PLP Format: Paragraph:Line:Word
+ * DPLP Format: Date:Paragraph:Line:Word
  */
-export const encodeMessage = (message: string, bookIndex: BookIndex, mode: CipherMode, pageNumber: number = 1): ProcessingResult => {
+export const encodeMessage = (message: string, bookIndex: BookIndex, mode: CipherMode, dateString: string = ""): ProcessingResult => {
   const missingTokens: string[] = [];
-  let result = "";
   
-  // Normalize tokens based on mode
-  if (mode === CipherMode.WORD) {
-    // Split message into words
-    const tokens = message.trim().split(/\s+/);
+  // Split message into words
+  const tokens = message.trim().split(/\s+/);
+  
+  const codes = tokens.map(token => {
+    // Clean token to match index key style
+    const cleanToken = token.replace(/[^\wÀ-ÿ]/g, '').toLowerCase();
     
-    const codes = tokens.map(token => {
-      const cleanToken = token.replace(/[^\wÀ-ÿ]/g, '').toLowerCase();
-      if (!cleanToken) return null; // Skip pure punctuation in word mode usually
+    // If it's punctuation only or empty, keep it as plaintext (or handle as space if needed)
+    if (!cleanToken) return token; 
 
-      const locations = bookIndex[cleanToken];
-      
-      if (!locations || locations.length === 0) {
-        missingTokens.push(token);
-        return `[${token}]`; // Keep plaintext if not found
-      }
+    const locations = bookIndex[cleanToken];
+    
+    if (!locations || locations.length === 0) {
+      missingTokens.push(token);
+      return `[${token}]`; // Keep plaintext if not found
+    }
 
-      // Pick a random location
-      const loc = locations[Math.floor(Math.random() * locations.length)];
-      return `${loc.line}:${loc.word}`;
-    }).filter(c => c !== null);
-
-    result = codes.join("  ");
-  } 
-  else {
-    // Character mode (Ottendorf/P.L.L)
-    // We process every character that is a letter/number
-    const chars = message.split('');
-    const codes = chars.map(char => {
-       if (char.match(/\s/)) return '/'; // Use slash for spaces
-       
-       const cleanChar = char.toLowerCase();
-       // If it's not a standard letter/number, just keep it (punctuation)
-       if (!cleanChar.match(/[a-z0-9À-ÿ]/)) return char;
-
-       const locations = bookIndex[cleanChar];
-       if (!locations || locations.length === 0) {
-         missingTokens.push(char);
-         return `[${char}]`;
-       }
-
-       const loc = locations[Math.floor(Math.random() * locations.length)];
-       // Format: Page:Line:Word:Letter
-       return `${pageNumber}:${loc.line}:${loc.word}:${loc.char}`;
-    });
-
-    result = codes.join(" ");
-  }
+    // Pick a random location
+    const loc = locations[Math.floor(Math.random() * locations.length)];
+    
+    if (mode === CipherMode.DPLP) {
+      // Date:Paragraph:Line:Word
+      // Default date to "000000" if not provided, or ensure it's not empty
+      const d = dateString.trim() || "DATA";
+      return `${d}:${loc.paragraph}:${loc.line}:${loc.word}`;
+    } else {
+      // PLP -> Paragraph:Line:Word
+      return `${loc.paragraph}:${loc.line}:${loc.word}`;
+    }
+  });
 
   return {
     success: missingTokens.length === 0,
-    text: result,
+    text: codes.join("  "), // Double space to separate coded words visually
     missingTokens: [...new Set(missingTokens)]
   };
 };
 
 /**
- * Decodes a cipher string using the Book Text (not index, we need direct lookup).
+ * Decodes a cipher string using the Book Text.
+ * Reconstructs the paragraph structure to lookup words.
  */
 export const decodeMessage = (cipher: string, bookText: string, mode: CipherMode): ProcessingResult => {
-  const lines = bookText.split(/\r?\n/);
+  // Reconstruct the structure to lookup
+  const paragraphs = bookText.split(/\n\s*\n/);
+  
   let decodedParts: string[] = [];
   let error = undefined;
 
@@ -123,63 +112,68 @@ export const decodeMessage = (cipher: string, bookText: string, mode: CipherMode
   const tokens = cipher.trim().split(/\s+/);
 
   decodedParts = tokens.map(token => {
-    // Handle spaces/separators
-    if (token === '/') return ' ';
-    if (token.startsWith('[') && token.endsWith(']')) return token.slice(1, -1); // Plaintext fallback
-    if (!token.includes(':')) return token; // Not a code? return as is.
-
-    const parts = token.split(':').map(n => parseInt(n, 10));
+    // Handle brackets (plaintext fallback)
+    if (token.startsWith('[') && token.endsWith(']')) return token.slice(1, -1);
     
-    // Explicitly initialize variables to avoid TS strict null check errors
+    // Check for valid format (must contain colons)
+    if (!token.includes(':')) return token;
+
+    const parts = token.split(':');
+    
+    let paraNum: number = 0;
     let lineNum: number = 0;
     let wordNum: number = 0;
-    let charNum: number = 0;
 
-    if (mode === CipherMode.WORD) {
-      // Expecting Line:Word
-      if (parts.length >= 2) {
-        lineNum = parts[0];
-        wordNum = parts[1];
+    if (mode === CipherMode.PLP) {
+      // Expecting P:L:P (3 parts)
+      if (parts.length === 3) {
+        paraNum = parseInt(parts[0], 10);
+        lineNum = parseInt(parts[1], 10);
+        wordNum = parseInt(parts[2], 10);
+      } else {
+        return '?';
       }
-    } else {
-      // Expecting Page:Line:Word:Letter (4 parts) OR Line:Word:Letter (3 parts - legacy)
+    } else if (mode === CipherMode.DPLP) {
+      // Expecting Date:P:L:P (4 parts)
       if (parts.length === 4) {
-         // We ignore the Page Number (parts[0]) for the actual decoding logic
-         // assuming the user has loaded the correct text into the "Dados Coletados" area.
-         lineNum = parts[1];
-         wordNum = parts[2];
-         charNum = parts[3];
-      } else if (parts.length === 3) {
-         lineNum = parts[0];
-         wordNum = parts[1];
-         charNum = parts[2];
+        // parts[0] is Date, we ignore it for decoding content
+        paraNum = parseInt(parts[1], 10);
+        lineNum = parseInt(parts[2], 10);
+        wordNum = parseInt(parts[3], 10);
+      } else {
+        return '?';
       }
     }
 
-    // Validate Line
-    if (lineNum < 1 || lineNum > lines.length) return '?';
-    
-    const lineContent = lines[lineNum - 1];
-    const words = lineContent.trim().split(/\s+/);
+    // Validate inputs
+    if (isNaN(paraNum) || isNaN(lineNum) || isNaN(wordNum)) return '?';
 
-    // Validate Word
+    // 1. Find Paragraph
+    if (paraNum < 1 || paraNum > paragraphs.length) return '?';
+    const paraContent = paragraphs[paraNum - 1];
+    if (!paraContent) return '?';
+
+    // 2. Find Line within Paragraph
+    const lines = paraContent.split(/\r?\n/);
+    if (lineNum < 1 || lineNum > lines.length) return '?';
+    const lineContent = lines[lineNum - 1];
+
+    // 3. Find Word within Line
+    const words = lineContent.trim().split(/\s+/);
     if (wordNum < 1 || wordNum > words.length) return '?';
     
     const rawWord = words[wordNum - 1];
+    // Clean to return the word without attached punctuation if desired, 
+    // or return rawWord to preserve book punctuation. 
+    // Usually decoding wants the word concept.
     const cleanWord = rawWord.replace(/[^\wÀ-ÿ]/g, '');
 
-    if (mode === CipherMode.WORD) {
-      return cleanWord.toUpperCase();
-    } else {
-      // Validate Char
-      if (charNum < 1 || charNum > cleanWord.length) return '?';
-      return cleanWord[charNum - 1].toUpperCase();
-    }
+    return cleanWord.toUpperCase();
   });
 
   return {
     success: true,
-    text: mode === CipherMode.WORD ? decodedParts.join(' ') : decodedParts.join(''),
+    text: decodedParts.join(' '),
     error
   };
 };
