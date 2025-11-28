@@ -92,9 +92,10 @@ const App: React.FC = () => {
         return prev + separator + text;
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Erro no protocolo de reconhecimento ótico. Verifique sua chave de API ou a imagem.");
+      // Exibe a mensagem real do erro para facilitar o debug
+      alert(`Erro: ${err.message || "Falha desconhecida no OCR"}`);
     } finally {
       setIsAnalyzingImage(false);
     }
