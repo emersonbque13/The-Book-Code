@@ -138,8 +138,13 @@ const App: React.FC = () => {
 
     } catch (err: any) {
       console.error(err);
-      // Exibe a mensagem real do erro para facilitar o debug
-      alert(`Erro: ${err.message || "Falha desconhecida no OCR"}`);
+      const msg = err.message || "";
+      
+      if (msg.includes("403") || msg.includes("API key not valid") || msg.includes("key")) {
+        alert(`Erro de Autenticação na API Gemini:\n\n${msg}\n\nVerifique se sua API_KEY no Vercel está correta e válida.`);
+      } else {
+        alert(`Erro ao processar imagem:\n\n${msg}`);
+      }
     } finally {
       setIsAnalyzingImage(false);
     }

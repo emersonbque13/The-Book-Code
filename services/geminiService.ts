@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 export const extractTextFromImage = async (base64Data: string, mimeType: string): Promise<string> => {
   if (!process.env.API_KEY) {
-    throw new Error("API Key is missing.");
+    throw new Error("A Chave API (API_KEY) não foi configurada. Verifique as variáveis de ambiente.");
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -26,8 +26,9 @@ export const extractTextFromImage = async (base64Data: string, mimeType: string)
     });
 
     return response.text || "";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini OCR Error:", error);
-    throw new Error("Falha ao reconhecer texto da imagem.");
+    // Propaga a mensagem real do erro para o App.tsx tratar (ex: API key not valid)
+    throw new Error(error.message || "Falha desconhecida ao conectar com a API Gemini.");
   }
 };
