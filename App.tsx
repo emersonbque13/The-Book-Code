@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { BookOpen, Key, Lock, Unlock, RefreshCw, FileText, ArrowRight, Camera, Cpu, Terminal, Shield, Hash, Upload, Calendar } from 'lucide-react';
+import { BookOpen, Key, Lock, Unlock, RefreshCw, FileText, ArrowRight, Camera, Cpu, Terminal, Shield, Hash, Upload, Calendar, Trash2 } from 'lucide-react';
 import { CipherMode, ProcessingResult } from './types';
 import { indexBook, encodeMessage, decodeMessage } from './services/cipherService';
 import { extractTextFromImage } from './services/geminiService';
@@ -322,6 +322,14 @@ const App: React.FC = () => {
               <span>Palavras: <b className="text-cyan-400">{bookStats.words}</b></span>
               <span>Letras: <b className="text-cyan-400">{bookStats.letters}</b></span>
             </div>
+          </div>
+          
+          {/* Botão de Limpar Dados */}
+          <div className="flex justify-end">
+             <Button variant="danger" size="sm" onClick={() => setBookText("")} title="Apagar todo o texto coletado">
+                <Trash2 className="w-4 h-4" />
+                LIMPAR DADOS
+             </Button>
           </div>
         </section>
 
