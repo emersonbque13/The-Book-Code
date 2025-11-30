@@ -1,11 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 
-export const extractTextFromImage = async (base64Data: string, mimeType: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    throw new Error("A Chave API (API_KEY) não foi configurada. Verifique as variáveis de ambiente.");
+export const extractTextFromImage = async (base64Data: string, mimeType: string, customKey?: string): Promise<string> => {
+  const keyToUse = customKey || process.env.API_KEY;
+
+  if (!keyToUse) {
+    throw new Error("A Chave API (API_KEY) não foi configurada. Insira manualmente ou verifique as variáveis de ambiente.");
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: keyToUse });
 
   try {
     const response = await ai.models.generateContent({

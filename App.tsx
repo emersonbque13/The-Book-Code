@@ -27,6 +27,7 @@ const App: React.FC = () => {
   // API Key State
   const [apiKeyReady, setApiKeyReady] = useState<boolean>(false);
   const [canUseAIStudio, setCanUseAIStudio] = useState<boolean>(false);
+  const [manualApiKey, setManualApiKey] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const txtInputRef = useRef<HTMLInputElement>(null);
@@ -101,12 +102,13 @@ const App: React.FC = () => {
 
   // Função auxiliar para processar imagens (OCR)
   const processImageFile = async (file: File) => {
-    if (!apiKeyReady) {
+    // Verifica se tem chave de ambiente OU chave manual
+    if (!apiKeyReady && !manualApiKey) {
       if (canUseAIStudio) {
         handleLinkApiKey();
         return;
       } else {
-        alert("Erro: API Key não detectada.\n\nSe você está no Vercel:\n1. Vá em Settings > Environment Variables\n2. Adicione KEY: API_KEY e VALUE: sua_chave\n3. Faça o Redeploy.");
+        alert("Chave API ausente. Por favor, configure o .env ou cole sua chave no campo superior direito.");
         return;
       }
     }
@@ -124,7 +126,8 @@ const App: React.FC = () => {
         reader.readAsDataURL(file);
       });
 
-      const text = await extractTextFromImage(base64Data, file.type);
+      // Passa a manualApiKey se existir
+      const text = await extractTextFromImage(base64Data, file.type, manualApiKey);
       
       setBookText(prev => {
         // Se o texto atual for o padrão ou estiver vazio, substitui.
@@ -141,7 +144,7 @@ const App: React.FC = () => {
       const msg = err.message || "";
       
       if (msg.includes("403") || msg.includes("API key not valid") || msg.includes("key")) {
-        alert(`Erro de Autenticação na API Gemini:\n\n${msg}\n\nVerifique se sua API_KEY no Vercel está correta e válida.`);
+        alert(`Erro de Autenticação na API Gemini:\n\n${msg}\n\nVerifique se a chave inserida ou configurada no Vercel está correta.`);
       } else {
         alert(`Erro ao processar imagem:\n\n${msg}`);
       }
@@ -213,13 +216,13 @@ const App: React.FC = () => {
                 The Book Code
               </h1>
               <p className="text-slate-400 font-rajdhani text-lg mt-1 tracking-wider uppercase flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full animate-ping ${apiKeyReady ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                <span className={`w-2 h-2 rounded-full animate-ping ${apiKeyReady || manualApiKey ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                 Protocolo de Mensagens Seguras V.1
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-col items-end gap-3 w-full md:w-auto">
             {/* API Key Status Indicator / Action */}
             {!apiKeyReady && canUseAIStudio && (
               <Button variant="danger" size="sm" onClick={handleLinkApiKey} className="animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]">
@@ -228,17 +231,30 @@ const App: React.FC = () => {
               </Button>
             )}
             
+            {/* Se não tem chave e não pode usar AI Studio, oferece input manual */}
             {!apiKeyReady && !canUseAIStudio && (
-               <div 
-                className="text-red-500 text-xs font-orbitron border border-red-900/50 bg-red-950/30 px-3 py-1 rounded flex items-center gap-2 cursor-help"
-                title="Configure a variável de ambiente API_KEY no Vercel (Settings -> Env Variables) ou crie um arquivo .env localmente."
-               >
-                 <Shield className="w-3 h-3" />
-                 API KEY MISSING (.ENV)
+               <div className="flex flex-col items-end gap-2 w-full">
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                     <div className="relative w-full md:w-64">
+                       <Hash className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-500" />
+                       <input 
+                          type="password"
+                          value={manualApiKey}
+                          onChange={(e) => setManualApiKey(e.target.value)}
+                          placeholder="Cole sua Gemini API Key aqui..."
+                          className="w-full bg-slate-950/80 border border-slate-700 text-cyan-400 pl-8 pr-2 py-1.5 font-mono text-xs focus:border-cyan-500 outline-none rounded-sm shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]"
+                       />
+                     </div>
+                  </div>
+                  {!manualApiKey && (
+                    <div className="text-red-500 text-[10px] font-orbitron opacity-70">
+                      * Chave necessária para Câmera/OCR
+                    </div>
+                  )}
                </div>
             )}
 
-            <div className="flex items-center gap-1 bg-slate-950/50 p-1 border border-slate-800 backdrop-blur-sm" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}>
+            <div className="flex items-center gap-1 bg-slate-950/50 p-1 border border-slate-800 backdrop-blur-sm mt-2 md:mt-0" style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}>
               <button
                 onClick={() => setMode(CipherMode.PLP)}
                 className={`px-4 py-2 text-sm font-orbitron uppercase tracking-wider transition-all ${mode === CipherMode.PLP ? 'bg-cyan-900/50 text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}
