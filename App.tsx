@@ -102,23 +102,17 @@ const App: React.FC = () => {
 
   // Função auxiliar para processar imagens (OCR)
   const processImageFile = async (file: File) => {
-    // Verifica se tem chave de ambiente OU chave manual
-    if (!apiKeyReady && !manualApiKey) {
-      if (canUseAIStudio) {
-        handleLinkApiKey();
-        return;
-      } else {
-        alert("Chave API ausente. Por favor, configure o .env ou cole sua chave no campo superior direito.");
-        return;
-      }
-    }
-
+    // AVISO: Agora permitimos tentar o OCR mesmo sem chave Gemini frontend,
+    // pois o backend Vision API pode estar configurado.
+    // A verificação de chave é feita internamente no serviço para o fallback.
+    
     setIsAnalyzingImage(true);
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const result = reader.result as string;
+          // Remove o prefixo data:image/...;base64, para enviar limpo
           const base64 = result.split(',')[1];
           resolve(base64);
         };
@@ -126,7 +120,7 @@ const App: React.FC = () => {
         reader.readAsDataURL(file);
       });
 
-      // Passa a manualApiKey se existir
+      // Passa a manualApiKey se existir para o fallback
       const text = await extractTextFromImage(base64Data, file.type, manualApiKey);
       
       setBookText(prev => {
@@ -143,8 +137,11 @@ const App: React.FC = () => {
       console.error(err);
       const msg = err.message || "";
       
-      if (msg.includes("403") || msg.includes("API key not valid") || msg.includes("key")) {
-        alert(`Erro de Autenticação na API Gemini:\n\n${msg}\n\nVerifique se a chave inserida ou configurada no Vercel está correta.`);
+      // Erro consolidado (Vision falhou E Gemini falhou)
+      if (msg.includes("API key not valid") || msg.includes("API_KEY")) {
+        alert(`Falha no OCR (Primário e Fallback):\n\nPara usar o fallback do Gemini, insira uma Chave API válida no topo ou configure o ambiente.`);
+      } else if (msg.includes("Vision API")) {
+        alert(`Erro no Serviço Vision API:\n\n${msg}\n\nVerifique as credenciais no Vercel.`);
       } else {
         alert(`Erro ao processar imagem:\n\n${msg}`);
       }
@@ -248,7 +245,7 @@ const App: React.FC = () => {
                   </div>
                   {!manualApiKey && (
                     <div className="text-red-500 text-[10px] font-orbitron opacity-70">
-                      * Chave necessária para Câmera/OCR
+                      * Opcional: Fallback Gemini
                     </div>
                   )}
                </div>
