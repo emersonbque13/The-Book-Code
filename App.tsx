@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { BookOpen, Key, Lock, Unlock, RefreshCw, FileText, ArrowRight, Camera, Cpu, Terminal, Shield, Hash, Upload, Calendar, Trash2 } from 'lucide-react';
+import { BookOpen, Key, Lock, Unlock, RefreshCw, FileText, ArrowRight, Camera, Cpu, Terminal, Shield, Hash, Upload, Calendar, Trash2, X } from 'lucide-react';
 import { CipherMode, ProcessingResult } from './types';
 import { indexBook, encodeMessage, decodeMessage } from './services/cipherService';
 import { extractTextFromImage } from './services/geminiService';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [apiKeyReady, setApiKeyReady] = useState<boolean>(false);
   const [canUseAIStudio, setCanUseAIStudio] = useState<boolean>(false);
   const [manualApiKey, setManualApiKey] = useState<string>("");
+  const [showManualInput, setShowManualInput] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const txtInputRef = useRef<HTMLInputElement>(null);
@@ -49,16 +50,18 @@ const App: React.FC = () => {
     checkApiKey();
   }, []);
 
-  const handleLinkApiKey = async () => {
-    if (window.aistudio) {
+  const handleApiKeyAction = async () => {
+    if (canUseAIStudio) {
       try {
-        await window.aistudio.openSelectKey();
-        // Assume sucesso para mitigar condição de corrida, conforme instrução
+        await window.aistudio?.openSelectKey();
         setApiKeyReady(true);
       } catch (e) {
         console.error("Erro ao selecionar chave", e);
         setApiKeyReady(false);
       }
+    } else {
+      // Toggle manual input visibility
+      setShowManualInput(!showManualInput);
     }
   };
 
@@ -102,10 +105,6 @@ const App: React.FC = () => {
 
   // Função auxiliar para processar imagens (OCR)
   const processImageFile = async (file: File) => {
-    // AVISO: Agora permitimos tentar o OCR mesmo sem chave Gemini frontend,
-    // pois o backend Vision API pode estar configurado.
-    // A verificação de chave é feita internamente no serviço para o fallback.
-    
     setIsAnalyzingImage(true);
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -124,8 +123,6 @@ const App: React.FC = () => {
       const text = await extractTextFromImage(base64Data, file.type, manualApiKey);
       
       setBookText(prev => {
-        // Se o texto atual for o padrão ou estiver vazio, substitui.
-        // Caso contrário, anexa (útil para adicionar múltiplas páginas).
         if (prev === INITIAL_BOOK || prev.trim() === "") {
           return text;
         }
@@ -137,9 +134,9 @@ const App: React.FC = () => {
       console.error(err);
       const msg = err.message || "";
       
-      // Erro consolidado (Vision falhou E Gemini falhou)
       if (msg.includes("API key not valid") || msg.includes("API_KEY")) {
         alert(`Falha no OCR (Primário e Fallback):\n\nPara usar o fallback do Gemini, insira uma Chave API válida no topo ou configure o ambiente.`);
+        setShowManualInput(true); // Abre o input automaticamente em caso de erro
       } else if (msg.includes("Vision API")) {
         alert(`Erro no Serviço Vision API:\n\n${msg}\n\nVerifique as credenciais no Vercel.`);
       } else {
@@ -172,7 +169,6 @@ const App: React.FC = () => {
       alert("Formato de arquivo não suportado. Use .txt ou Imagens.");
     }
 
-    // Limpar input para permitir selecionar o mesmo arquivo novamente se necessário
     if (txtInputRef.current) txtInputRef.current.value = '';
   };
 
@@ -220,17 +216,22 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-            {/* API Key Status Indicator / Action */}
-            {!apiKeyReady && canUseAIStudio && (
-              <Button variant="danger" size="sm" onClick={handleLinkApiKey} className="animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+            {/* Botão Vincular Chave API - Sempre visível se não houver chave */}
+            {!apiKeyReady && (
+              <Button 
+                variant="danger" 
+                size="sm" 
+                onClick={handleApiKeyAction} 
+                className="animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+              >
                  <Key className="w-4 h-4 mr-2" />
-                 VINCULAR CHAVE API
+                 {showManualInput ? "FECHAR OPÇÕES" : "VINCULAR CHAVE API"}
               </Button>
             )}
             
-            {/* Se não tem chave e não pode usar AI Studio, oferece input manual */}
-            {!apiKeyReady && !canUseAIStudio && (
-               <div className="flex flex-col items-end gap-2 w-full">
+            {/* Input Manual de Chave API (Toggled pelo botão acima em ambientes não-IDX) */}
+            {!apiKeyReady && showManualInput && !canUseAIStudio && (
+               <div className="flex flex-col items-end gap-2 w-full animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-center gap-2 w-full md:w-auto">
                      <div className="relative w-full md:w-64">
                        <Hash className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-500" />
@@ -245,7 +246,7 @@ const App: React.FC = () => {
                   </div>
                   {!manualApiKey && (
                     <div className="text-red-500 text-[10px] font-orbitron opacity-70">
-                      * Opcional: Fallback Gemini
+                      * Opcional: Para Fallback Gemini
                     </div>
                   )}
                </div>
