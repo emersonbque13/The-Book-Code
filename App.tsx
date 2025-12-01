@@ -132,13 +132,23 @@ const App: React.FC = () => {
 
     } catch (err: any) {
       console.error(err);
-      const msg = err.message || "";
+      let msg = err.message || "";
+
+      // Tenta limpar erros JSON vindos da API (ex: erro 401 do print)
+      try {
+        if (typeof msg === 'string' && msg.trim().startsWith('{')) {
+          const jsonError = JSON.parse(msg);
+          if (jsonError.error && jsonError.error.message) {
+            msg = jsonError.error.message;
+          }
+        }
+      } catch (e) { /* ignore parse error */ }
       
-      if (msg.includes("API key not valid") || msg.includes("API_KEY")) {
-        alert(`Falha no OCR (Primário e Fallback):\n\nPara usar o fallback do Gemini, insira uma Chave API válida no topo ou configure o ambiente.`);
+      if (msg.includes("API key not valid") || msg.includes("API_KEY") || msg.includes("API keys are not supported")) {
+        alert(`Falha na Autenticação:\n\nSua chave API ou credenciais são inválidas ou estão ausentes.\nUse o botão 'VINCULAR CHAVE API' no topo para inserir uma chave válida.`);
         setShowManualInput(true); // Abre o input automaticamente em caso de erro
       } else if (msg.includes("Vision API")) {
-        alert(`Erro no Serviço Vision API:\n\n${msg}\n\nVerifique as credenciais no Vercel.`);
+        alert(`Erro no Serviço Vision API:\n\n${msg}\n\nO sistema tentou usar o fallback e falhou.`);
       } else {
         alert(`Erro ao processar imagem:\n\n${msg}`);
       }

@@ -69,15 +69,22 @@ export const extractTextFromImage = async (base64Data: string, mimeType: string,
       }
     }
     
-    // If response was not OK (e.g. 503 credentials missing, 404 route not found locally), throw to trigger catch
-    console.warn(`Vision API endpoint returned status ${response.status}. Switching to fallback.`);
+    // Se a resposta não foi OK, tentar ler o erro para debug
+    let errorDetail = "";
+    try {
+        const errData = await response.json();
+        errorDetail = errData.error || "";
+    } catch(e) {}
+
+    console.warn(`Vision API endpoint returned status ${response.status}. Detail: ${errorDetail}. Switching to fallback.`);
     throw new Error("Vision API unavailable");
 
   } catch (visionError) {
     // 2. Fallback to Gemini
-    console.log("Alternando para Fallback (Gemini)...", visionError);
+    console.log("Alternando para Fallback (Gemini)...");
     
     if (!geminiKey) {
+      // Se não tiver chave, propaga o erro para que a UI peça a chave
       throw new Error("Google Vision API indisponível e Chave Gemini não configurada.");
     }
 
