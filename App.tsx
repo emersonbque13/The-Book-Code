@@ -161,7 +161,7 @@ const App: React.FC = () => {
         // Se houver erro de autenticação, invalida o estado da chave e força a abertura do input
         setApiKeyReady(false);
         setShowManualInput(true);
-        alert(`Falha na Autenticação:\n\nSua chave API é inválida, expirou ou não está configurada.\nO campo para inserir a chave foi aberto no topo.`);
+        alert(`Falha na Autenticação:\n\nSua chave API expirou ou não está configurada corretamente.\nPor favor, insira uma chave válida no campo que apareceu no topo.`);
       } else if (msg.includes("Vision API")) {
         alert(`Erro no Serviço Vision API:\n\n${msg}\n\nO sistema tentou usar o fallback mas também encontrou erros.`);
       } else {

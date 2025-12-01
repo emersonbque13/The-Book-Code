@@ -1,6 +1,20 @@
 import { BookIndex, BookLocation, CipherMode, ProcessingResult } from '../types';
 
 /**
+ * Normaliza uma palavra para ser usada como chave de índice.
+ * Remove acentos (NFD), converte para minúsculas e remove caracteres não alfanuméricos.
+ * Ex: "Vovó!" -> "vovo"
+ * Ex: "Maçã" -> "maca"
+ */
+const normalizeKey = (str: string): string => {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacríticos (acentos)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ""); // Remove pontuação restante
+};
+
+/**
  * Parses the "Book" text into a structured index for fast lookups.
  * Indexes by Paragraph -> Line -> Word.
  */
@@ -8,7 +22,6 @@ export const indexBook = (text: string, mode: CipherMode): BookIndex => {
   const index: BookIndex = {};
   
   // Split by double newlines to identify paragraphs
-  // Using regex to catch multiple newlines or newlines with whitespace
   const paragraphs = text.split(/\n\s*\n/);
 
   paragraphs.forEach((paraContent, paraIdx) => {
@@ -22,26 +35,27 @@ export const indexBook = (text: string, mode: CipherMode): BookIndex => {
     lines.forEach((lineContent, lineIdx) => {
       const lineNum = lineIdx + 1; 
       
-      // Split by spaces to get words
+      // Split by whitespace to get potential words
       const words = lineContent.trim().split(/\s+/);
 
       words.forEach((rawWord, wordIdx) => {
         if (!rawWord) return;
         
         const wordNum = wordIdx + 1;
-        // Clean the word for the key (remove punctuation, lowercase)
-        const cleanWord = rawWord.replace(/[^\wÀ-ÿ]/g, '').toLowerCase();
         
-        if (!cleanWord) return;
+        // Gera a chave normalizada para busca (sem acentos)
+        const key = normalizeKey(rawWord);
         
-        if (!index[cleanWord]) index[cleanWord] = [];
+        if (!key) return;
         
-        // Store location: Paragraph, Line (relative to paragraph), Word
-        index[cleanWord].push({ 
+        if (!index[key]) index[key] = [];
+        
+        // Armazena a localização e o conteúdo ORIGINAL (com acentos)
+        index[key].push({ 
           paragraph: paragraphNum,
           line: lineNum, 
           word: wordNum, 
-          content: cleanWord 
+          content: rawWord.replace(/[^\wÀ-ÿ]/g, '') // Limpa pontuação visual apenas
         });
       });
     });
@@ -63,13 +77,13 @@ export const encodeMessage = (message: string, bookIndex: BookIndex, mode: Ciphe
   const tokens = message.trim().split(/\s+/);
   
   const codes = tokens.map(token => {
-    // Clean token to match index key style
-    const cleanToken = token.replace(/[^\wÀ-ÿ]/g, '').toLowerCase();
+    // Normaliza o token de entrada para encontrar no índice (ex: usuário digita "Avó", busca "avo")
+    const key = normalizeKey(token);
     
-    // If it's punctuation only or empty, keep it as plaintext (or handle as space if needed)
-    if (!cleanToken) return token; 
+    // Se for pontuação pura ou vazio após limpar
+    if (!key) return token; 
 
-    const locations = bookIndex[cleanToken];
+    const locations = bookIndex[key];
     
     if (!locations || locations.length === 0) {
       missingTokens.push(token);
@@ -81,7 +95,6 @@ export const encodeMessage = (message: string, bookIndex: BookIndex, mode: Ciphe
     
     if (mode === CipherMode.DPLP) {
       // Date:Paragraph:Line:Word
-      // Default date to "000000" if not provided, or ensure it's not empty
       const d = dateString.trim() || "DATA";
       return `${d}:${loc.paragraph}:${loc.line}:${loc.word}`;
     } else {
@@ -163,10 +176,10 @@ export const decodeMessage = (cipher: string, bookText: string, mode: CipherMode
     if (wordNum < 1 || wordNum > words.length) return '?';
     
     const rawWord = words[wordNum - 1];
-    // Clean to return the word without attached punctuation if desired, 
-    // or return rawWord to preserve book punctuation. 
-    // Usually decoding wants the word concept.
-    const cleanWord = rawWord.replace(/[^\wÀ-ÿ]/g, '');
+    
+    // Clean only trailing punctuation for display, keeping accents intact
+    // Remove symbols that aren't letters or numbers from the ends
+    const cleanWord = rawWord.replace(/^[^a-zA-ZÀ-ÿ0-9]+|[^a-zA-ZÀ-ÿ0-9]+$/g, '');
 
     return cleanWord.toUpperCase();
   });
