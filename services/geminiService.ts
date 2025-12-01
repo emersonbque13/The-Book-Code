@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 /**
  * Fallback method: Uses Gemini API (Client-Side)
@@ -25,13 +25,27 @@ const extractTextWithGemini = async (base64Data: string, mimeType: string, apiKe
             text: "Transcreva todo o texto contido nesta imagem. Ignore cabeçalhos ou rodapés irrelevantes se parecerem ruído, mas tente capturar o corpo do texto com precisão. Retorne apenas o texto transcrito, sem comentários adicionais."
           }
         ]
+      },
+      config: {
+        // Reduzir restrições de segurança para OCR de texto, evitando falsos positivos
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
       }
     });
 
-    return response.text || "";
+    if (!response.text) {
+      throw new Error("O modelo retornou uma resposta vazia. Tente novamente ou verifique a qualidade da imagem.");
+    }
+
+    return response.text;
   } catch (error: any) {
     console.error("Gemini OCR Fallback Error:", error);
-    throw new Error(error.message || "Falha na API Gemini.");
+    // Retorna a mensagem original do erro para melhor debug no frontend
+    throw new Error(`Falha na API Gemini: ${error.message || error.toString()}`);
   }
 };
 
@@ -84,7 +98,7 @@ export const extractTextFromImage = async (base64Data: string, mimeType: string,
     console.log("Alternando para Fallback (Gemini)...");
     
     if (!geminiKey) {
-      // Se não tiver chave, propaga o erro para que a UI peça a chave
+      // Se não tiver chave, propaga o erro específico para que a UI peça a chave
       throw new Error("Google Vision API indisponível e Chave Gemini não configurada.");
     }
 

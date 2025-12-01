@@ -44,7 +44,8 @@ const App: React.FC = () => {
       } else {
         // Ambiente padrão (Vercel/Local) - verifica variavel de ambiente
         // Nota: process.env.API_KEY é injetado pelo Vite como string
-        setApiKeyReady(!!process.env.API_KEY);
+        // Se a string for vazia ou undefined, considera não pronto
+        setApiKeyReady(!!process.env.API_KEY && process.env.API_KEY.length > 0);
       }
     };
     checkApiKey();
@@ -144,12 +145,27 @@ const App: React.FC = () => {
         }
       } catch (e) { /* ignore parse error */ }
       
-      if (msg.includes("API key not valid") || msg.includes("API_KEY") || msg.includes("API keys are not supported")) {
-        alert(`Falha na Autenticação:\n\nSua chave API ou credenciais são inválidas ou estão ausentes.\nUse o botão 'VINCULAR CHAVE API' no topo para inserir uma chave válida.`);
-        setShowManualInput(true); // Abre o input automaticamente em caso de erro
+      // Lista de termos que indicam falha de autenticação ou chave ausente
+      const authErrorTerms = [
+        "API key not valid", 
+        "API_KEY", 
+        "API keys are not supported",
+        "400 Bad Request",
+        "403 Forbidden",
+        "Chave Gemini não configurada"
+      ];
+
+      const isAuthError = authErrorTerms.some(term => msg.includes(term));
+
+      if (isAuthError) {
+        // Se houver erro de autenticação, invalida o estado da chave e força a abertura do input
+        setApiKeyReady(false);
+        setShowManualInput(true);
+        alert(`Falha na Autenticação:\n\nSua chave API é inválida, expirou ou não está configurada.\nO campo para inserir a chave foi aberto no topo.`);
       } else if (msg.includes("Vision API")) {
-        alert(`Erro no Serviço Vision API:\n\n${msg}\n\nO sistema tentou usar o fallback e falhou.`);
+        alert(`Erro no Serviço Vision API:\n\n${msg}\n\nO sistema tentou usar o fallback mas também encontrou erros.`);
       } else {
+        // Mostra o erro exato retornado pelo Gemini
         alert(`Erro ao processar imagem:\n\n${msg}`);
       }
     } finally {
@@ -219,15 +235,15 @@ const App: React.FC = () => {
                 The Book Code
               </h1>
               <p className="text-slate-400 font-rajdhani text-lg mt-1 tracking-wider uppercase flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full animate-ping ${apiKeyReady || manualApiKey ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                <span className={`w-2 h-2 rounded-full animate-ping ${apiKeyReady ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                 Protocolo de Mensagens Seguras V.1
               </p>
             </div>
           </div>
 
           <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-            {/* Botão Vincular Chave API - Sempre visível se não houver chave */}
-            {!apiKeyReady && (
+            {/* Botão Vincular Chave API - Visível se não houver chave OU se o usuário quiser editar manualmente */}
+            {(!apiKeyReady || showManualInput) && (
               <Button 
                 variant="danger" 
                 size="sm" 
@@ -239,8 +255,8 @@ const App: React.FC = () => {
               </Button>
             )}
             
-            {/* Input Manual de Chave API (Toggled pelo botão acima em ambientes não-IDX) */}
-            {!apiKeyReady && showManualInput && !canUseAIStudio && (
+            {/* Input Manual de Chave API */}
+            {showManualInput && !canUseAIStudio && (
                <div className="flex flex-col items-end gap-2 w-full animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-center gap-2 w-full md:w-auto">
                      <div className="relative w-full md:w-64">
@@ -248,17 +264,19 @@ const App: React.FC = () => {
                        <input 
                           type="password"
                           value={manualApiKey}
-                          onChange={(e) => setManualApiKey(e.target.value)}
+                          onChange={(e) => {
+                             setManualApiKey(e.target.value);
+                             // Se o usuário começar a digitar, assumimos que está tentando consertar
+                             if (e.target.value.length > 10) setApiKeyReady(true);
+                          }}
                           placeholder="Cole sua Gemini API Key aqui..."
                           className="w-full bg-slate-950/80 border border-slate-700 text-cyan-400 pl-8 pr-2 py-1.5 font-mono text-xs focus:border-cyan-500 outline-none rounded-sm shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]"
                        />
                      </div>
                   </div>
-                  {!manualApiKey && (
-                    <div className="text-red-500 text-[10px] font-orbitron opacity-70">
-                      * Opcional: Para Fallback Gemini
-                    </div>
-                  )}
+                  <div className="text-slate-400 text-[10px] font-orbitron opacity-70">
+                    * Necessário se a Vision API falhar (Fallback)
+                  </div>
                </div>
             )}
 
